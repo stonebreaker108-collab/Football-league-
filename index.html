@@ -257,9 +257,15 @@ function gkKit(t){
 }
 let TK=['realMadrid','barca'];
 function refreshTeams(){for(let t=0;t<2;t++){const T=TEAMS[TK[t]];COL[t]=T.kitPrimary;COL2[t]=T.kitSecondary;TN[t]=T.name;SH[t]=T.short}}
+function realNamesFor(clubKey){
+  const MAP={realMadrid:'Real Madrid',barca:'FC Barcelona',mancity:'Manchester City',manutd:'Manchester United',liverpool:'Liverpool',arsenal:'Arsenal',bayern:'Bayern Munich',psg:'Paris Saint-Germain',miami:'Inter Miami',alnassr:'Al Nassr',kerala:'Kerala Blasters'};
+  const DATA={"Real Madrid": ["Kylian Mbappé", "Vinícius Júnior", "Jude Bellingham", "Federico Valverde", "Thibaut Courtois", "Eduardo Camavinga", "Aurélien Tchouaméni", "Arda Güler", "Endrick"], "Manchester City": ["Erling Haaland", "Rodri", "Phil Foden", "Kevin De Bruyne", "Rúben Dias", "Josko Gvardiol", "Savinho", "Rico Lewis"], "FC Barcelona": ["Lamine Yamal", "Pedri", "Raphinha", "Robert Lewandowski", "Gavi", "Pau Cubarsí", "Marc Casadó", "Fermín López", "Héctor Fort", "Toni Fernández", "Guille Fernández"], "Bayern Munich": ["Harry Kane", "Jamal Musiala", "Alphonso Davies", "Michael Olise", "Aleksandar Pavlović", "Mathys Tel"], "Liverpool": ["Mohamed Salah", "Virgil van Dijk", "Alisson Becker", "Trent Alexander-Arnold", "Luis Díaz", "Alexis Mac Allister"], "Chelsea": ["Cole Palmer", "Moisés Caicedo", "Enzo Fernández", "Nicolas Jackson", "Estêvão Willian", "Kendry Páez"], "Arsenal": ["Bukayo Saka", "William Saliba", "Martin Ødegaard", "Declan Rice", "Gabriel Magalhães", "Kai Havertz", "Ethan Nwaneri", "Myles Lewis-Skelly"], "Inter Miami": ["Lionel Messi", "Luis Suárez"], "Al Nassr": ["Cristiano Ronaldo"], "Bayer Leverkusen": ["Florian Wirtz"], "Inter Milan": ["Lautaro Martínez", "Nicolò Barella", "Alessandro Bastoni"], "Atlético Madrid": ["Antoine Griezmann", "Julián Álvarez"], "Athletic Bilbao": ["Nico Williams"], "Paris Saint-Germain": ["Khvicha Kvaratskhelia", "Ousmane Dembélé", "Achraf Hakimi", "Vitinha", "Bradley Barcola", "Warren Zaïre-Emery", "João Neves"], "Manchester United": ["Bruno Fernandes", "Lisandro Martínez", "Kobbie Mainoo", "Alejandro Garnacho", "Leny Yoro", "Amad Diallo", "Toby Collyer", "Ayden Heaven", "Chido Obi"], "Tottenham Hotspur": ["Son Heung-min", "Lucas Bergvall", "Archie Gray"], "Newcastle United": ["Alexander Isak"], "Aston Villa": ["Emiliano Martínez"], "AC Milan": ["Rafael Leão", "Theo Hernández", "Christian Pulisic"], "Juventus": ["Dušan Vlahović", "Kenan Yıldız"], "Galatasaray": ["Victor Osimhen"], "Santos FC": ["Neymar Jr"], "Sunderland": ["Jobe Bellingham"], "Bengaluru FC": ["Sunil Chhetri", "Gurpreet Singh Sandhu"], "Mumbai City FC": ["Lallianzuala Chhangte"], "Mohun Bagan SG": ["Sahal Abdul Samad", "Apuia Ralte"], "FC Goa": ["Sandesh Jhingan"], "Kerala Blasters": ["Noah Sadaoui", "Adrián Luna", "Rahul KP", "Vibin Mohanan", "Sachin Suresh", "Mohammed Aimen"]};
+  return DATA[MAP[clubKey]]||[];
+}
 function applyRoster(){
   const skins=['#F1C27D','#E0AC69','#8D5524','#C68642'],hairs=['#111111','#2C1B18','#3B2F2F','#6F4E37'];
   const f=v=>cl(v/88,.85,1.15);
+  const usedNames=new Set();
   for(let t=0;t<2;t++){
     const T=TEAMS[TK[t]],out=T.players.filter(x=>!x.isGK),gk=T.players.find(x=>x.isGK),tf=cl((T.rating||88)/90,.92,1.08);
     const map={0:gk,9:out[0],10:out[1],7:out[2],6:out[3]};
@@ -269,7 +275,7 @@ function applyRoster(){
       if(p.team!==t)continue;
       const d=map[p.role];
       if(d){p.pname=d.name;p.num=d.number;p.spd=(d.isGK?1:f(d.speed))*tf;p.shf=f(d.shoot)*tf;p.psf=f(d.pass)*tf;p.skin=d.skin;p.hair=d.hair}
-      else{const ps=p.role===0?'GK':p.role<=4?'DEF':p.role<=8?'MID':'FWD';p.num=pool.shift();p.pname=ps+' '+p.num;p.spd=tf;p.shf=tf;p.psf=tf;p.skin=skins[(p.role+t)%4];p.hair=hairs[(p.role*3+t)%4]}
+      else{p.num=pool.shift();p.pname=String(p.num);const rn=realNamesFor(TK[t]).find(n=>!(p.team===t&&usedNames.has(n)));if(rn){usedNames.add(rn);p.pname=rn}p.spd=tf;p.shf=tf;p.psf=tf;p.skin=skins[(p.role+t)%4];p.hair=hairs[(p.role*3+t)%4]}
     }
   }
 }
@@ -340,6 +346,20 @@ function person(x,y,col,gk,p){
     }
     p.tOn=0;
   }
+  if(gk&&GKS.ok&&p&&G.st===0){
+    const tt=performance.now()/1000,dx=G.bx-x,dy=G.by-y,dist=Math.hypot(dx,dy);
+    const comingIn=(p.team===0&&G.vx<-60)||(p.team===1&&G.vx>60);
+    if(!p.dv&&dist<230&&comingIn&&Math.abs(dy)>14){p.dv=1;p.dS=tt;p.dAng=dy<0?-Math.PI/2:Math.PI/2}
+    if(p.dv){
+      const k=(tt-p.dS)/.7;
+      if(k<1){
+        const fi=Math.min(4,Math.floor(k*5));
+        gkDraw(x,y+8,'dl'+GKD[fi],gkKit(p.team)[0],p,.46,false,p.dAng);
+        return;
+      }
+      if(dist>260||k>1.6)p.dv=0;
+    }
+  }
   if(gk&&GKS.ok){
     const tt=performance.now()/1000,spd=p?Math.hypot(p.vx||0,p.vy||0):0,near=Math.hypot(G.bx-x,G.by-y)<450;
     const i=Math.floor(tt*(spd>25?10:4)+(p?p.team*3:0))%4;
@@ -405,9 +425,9 @@ function gkSprFor(name,gcol,skin,hair){
   }
   g.putImageData(id,0,0);GKS.cache.set(key,c2);return c2;
 }
-function gkDraw(x,y,name,col,p,s,flip){
+function gkDraw(x,y,name,col,p,s,flip,ang){
   const f=GKS.fr[name],img=gkSprFor(name,col,p&&p.skin,p&&p.hair);
-  cx.save();cx.translate(x,y);if(flip)cx.scale(-1,1);
+  cx.save();cx.translate(x,y);if(ang)cx.rotate(ang);if(flip)cx.scale(-1,1);
   cx.drawImage(img,-f.ax*s,-f.ay*s,img.width*s,img.height*s);cx.restore();
 }
 const GKI=[0,2,4,6],GKD=[0,2,4,6,9];
@@ -816,13 +836,13 @@ function tmHub(){
     const fx=userFx();
     h+=`<div class="tmbox"><h4>${st.kind==='rr'?st.name.toUpperCase()+' · MATCHDAY '+(st.md+1)+' OF '+st.mds:st.name.toUpperCase()}</h4>`;
     if(T.out){
-      h+=`<div style="font-size:16px;margin-bottom:10px">You are out of the ${T.type==='intl'?'tournament':'running'}. You can simulate the rest to see who wins.</div><button class="tmplay" onclick="tmSimRest()">Simulate rest ▶</button>`;
+      h+=`<div style="font-size:16px;margin-bottom:10px">You are out of the ${T.type==='intl'?'tournament':'running'}. Your run has ended.</div><button class="tmplay" onclick="location.reload()">Back to menu</button>`;
     }else if(fx){
       h+=`<div class="tmvs"><span>${lab(fx.a)}</span><span style="opacity:.6">vs</span><span>${lab(fx.b)}</span></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"><button class="tmplay" onclick="tmPlay()">PLAY MATCH ▶</button><button class="tmsec" onclick="tmSim()">Simulate round</button></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"><button class="tmplay" onclick="tmPlay()">PLAY MATCH ▶</button></div>
       <div style="text-align:center;font-size:12px;opacity:.7;margin-top:8px">Matches last 3 minutes (90 game minutes)${st.kind==='ko'?'. A draw goes to a penalty shootout.':'. A draw is a draw.'}</div>`;
     }else{
-      h+=`<button class="tmplay" onclick="tmSim()">Continue ▶</button>`;
+      h+=`<div style="text-align:center;opacity:.8">Waiting for the next round…</div>`;
     }
     h+='</div>';
   }
@@ -925,17 +945,9 @@ function ownedKeys(){return Object.keys(TEAMS).filter(k=>!TEAMS[k].kind&&isOwned
 
 /* ---------- squad: 11 v 11 lineup + player shop (game coins) ---------- */
 const SQ_SLOTS=[['GK'],['DEF'],['DEF'],['DEF'],['DEF'],['MID'],['MID'],['MID'],['MID'],['FWD'],['FWD']];
-const SQ_START=[
- {n:'NEUER',pos:'GK',ovr:88},{n:'VAN DIJK',pos:'DEF',ovr:89},{n:'RAMOS',pos:'DEF',ovr:85},{n:'PIQUE',pos:'DEF',ovr:82},{n:'ALABA',pos:'DEF',ovr:84},
- {n:'MODRIC',pos:'MID',ovr:87},{n:'GAVI',pos:'MID',ovr:81},{n:'DE BRUYNE',pos:'MID',ovr:91},{n:'KROOS',pos:'MID',ovr:85},
- {n:'MESSI',pos:'FWD',ovr:91},{n:'MULLER',pos:'FWD',ovr:86}
-];
-const SQ_SHOP=[
- {n:'RONALDO',pos:'FWD',ovr:90},{n:'MBAPPE',pos:'FWD',ovr:92},{n:'HAALAND',pos:'FWD',ovr:91},{n:'ALISSON',pos:'GK',ovr:89},
- {n:'MARTINEZ',pos:'GK',ovr:86},{n:'RODRI',pos:'MID',ovr:90},{n:'BELLINGHAM',pos:'MID',ovr:88},{n:'SALAH',pos:'FWD',ovr:89},
- {n:'KIMMICH',pos:'DEF',ovr:87},{n:'HAKIMI',pos:'DEF',ovr:86},{n:'DIAS',pos:'DEF',ovr:89},{n:'VALVERDE',pos:'MID',ovr:88}
-];
-const sqPrice=o=>Math.round(50+(Math.max(60,Math.min(92,o))-60)/32*950);
+const SQ_START=[{n:'STARTER GK',pos:'GK',ovr:60},{n:'STARTER DEF 1',pos:'DEF',ovr:60},{n:'STARTER DEF 2',pos:'DEF',ovr:60},{n:'STARTER DEF 3',pos:'DEF',ovr:60},{n:'STARTER DEF 4',pos:'DEF',ovr:60},{n:'STARTER MID 1',pos:'MID',ovr:60},{n:'STARTER MID 2',pos:'MID',ovr:60},{n:'STARTER MID 3',pos:'MID',ovr:60},{n:'STARTER MID 4',pos:'MID',ovr:60},{n:'STARTER FWD 1',pos:'FWD',ovr:60},{n:'STARTER FWD 2',pos:'FWD',ovr:60}];
+const SQ_SHOP=[{"n":"Kylian Mbappé","club":"Real Madrid","ovr":105,"pos":"FWD"},{"n":"Erling Haaland","club":"Manchester City","ovr":105,"pos":"FWD"},{"n":"Vinícius Júnior","club":"Real Madrid","ovr":104,"pos":"FWD"},{"n":"Lamine Yamal","club":"FC Barcelona","ovr":104,"pos":"FWD"},{"n":"Rodri","club":"Manchester City","ovr":103,"pos":"MID"},{"n":"Jude Bellingham","club":"Real Madrid","ovr":103,"pos":"MID"},{"n":"Harry Kane","club":"Bayern Munich","ovr":102,"pos":"FWD"},{"n":"Mohamed Salah","club":"Liverpool","ovr":102,"pos":"FWD"},{"n":"Cole Palmer","club":"Chelsea","ovr":101,"pos":"MID"},{"n":"Bukayo Saka","club":"Arsenal","ovr":101,"pos":"FWD"},{"n":"Lionel Messi","club":"Inter Miami","ovr":99,"pos":"FWD"},{"n":"Cristiano Ronaldo","club":"Al Nassr","ovr":98,"pos":"FWD"},{"n":"Pedri","club":"FC Barcelona","ovr":97,"pos":"MID"},{"n":"Jamal Musiala","club":"Bayern Munich","ovr":97,"pos":"MID"},{"n":"Florian Wirtz","club":"Bayer Leverkusen","ovr":96,"pos":"MID"},{"n":"Phil Foden","club":"Manchester City","ovr":96,"pos":"MID"},{"n":"Federico Valverde","club":"Real Madrid","ovr":96,"pos":"MID"},{"n":"Lautaro Martínez","club":"Inter Milan","ovr":95,"pos":"FWD"},{"n":"Virgil van Dijk","club":"Liverpool","ovr":95,"pos":"DEF"},{"n":"William Saliba","club":"Arsenal","ovr":95,"pos":"DEF"},{"n":"Martin Ødegaard","club":"Arsenal","ovr":94,"pos":"MID"},{"n":"Declan Rice","club":"Arsenal","ovr":94,"pos":"MID"},{"n":"Raphinha","club":"FC Barcelona","ovr":94,"pos":"FWD"},{"n":"Robert Lewandowski","club":"FC Barcelona","ovr":94,"pos":"FWD"},{"n":"Thibaut Courtois","club":"Real Madrid","ovr":94,"pos":"GK"},{"n":"Alisson Becker","club":"Liverpool","ovr":93,"pos":"GK"},{"n":"Kevin De Bruyne","club":"Manchester City","ovr":93,"pos":"MID"},{"n":"Rúben Dias","club":"Manchester City","ovr":93,"pos":"DEF"},{"n":"Antoine Griezmann","club":"Atlético Madrid","ovr":92,"pos":"FWD"},{"n":"Julián Álvarez","club":"Atlético Madrid","ovr":92,"pos":"FWD"},{"n":"Nico Williams","club":"Athletic Bilbao","ovr":92,"pos":"FWD"},{"n":"Khvicha Kvaratskhelia","club":"Paris Saint-Germain","ovr":92,"pos":"FWD"},{"n":"Ousmane Dembélé","club":"Paris Saint-Germain","ovr":91,"pos":"FWD"},{"n":"Achraf Hakimi","club":"Paris Saint-Germain","ovr":91,"pos":"DEF"},{"n":"Bruno Fernandes","club":"Manchester United","ovr":91,"pos":"MID"},{"n":"Son Heung-min","club":"Tottenham Hotspur","ovr":91,"pos":"FWD"},{"n":"Alexander Isak","club":"Newcastle United","ovr":91,"pos":"FWD"},{"n":"Nicolò Barella","club":"Inter Milan","ovr":90,"pos":"MID"},{"n":"Alessandro Bastoni","club":"Inter Milan","ovr":90,"pos":"DEF"},{"n":"Emiliano Martínez","club":"Aston Villa","ovr":90,"pos":"GK"},{"n":"Gavi","club":"FC Barcelona","ovr":89,"pos":"MID"},{"n":"Pau Cubarsí","club":"FC Barcelona","ovr":88,"pos":"DEF"},{"n":"Eduardo Camavinga","club":"Real Madrid","ovr":89,"pos":"MID"},{"n":"Aurélien Tchouaméni","club":"Real Madrid","ovr":88,"pos":"MID"},{"n":"Endrick","club":"Real Madrid","ovr":85,"pos":"FWD"},{"n":"Arda Güler","club":"Real Madrid","ovr":86,"pos":"MID"},{"n":"Trent Alexander-Arnold","club":"Liverpool","ovr":89,"pos":"DEF"},{"n":"Luis Díaz","club":"Liverpool","ovr":88,"pos":"FWD"},{"n":"Alexis Mac Allister","club":"Liverpool","ovr":88,"pos":"MID"},{"n":"Josko Gvardiol","club":"Manchester City","ovr":88,"pos":"DEF"},{"n":"Kai Havertz","club":"Arsenal","ovr":87,"pos":"FWD"},{"n":"Gabriel Magalhães","club":"Arsenal","ovr":88,"pos":"DEF"},{"n":"Moisés Caicedo","club":"Chelsea","ovr":86,"pos":"MID"},{"n":"Enzo Fernández","club":"Chelsea","ovr":85,"pos":"MID"},{"n":"Nicolas Jackson","club":"Chelsea","ovr":84,"pos":"FWD"},{"n":"Kobbie Mainoo","club":"Manchester United","ovr":84,"pos":"MID"},{"n":"Alejandro Garnacho","club":"Manchester United","ovr":84,"pos":"FWD"},{"n":"Lisandro Martínez","club":"Manchester United","ovr":85,"pos":"DEF"},{"n":"Alphonso Davies","club":"Bayern Munich","ovr":87,"pos":"DEF"},{"n":"Michael Olise","club":"Bayern Munich","ovr":87,"pos":"FWD"},{"n":"Rafael Leão","club":"AC Milan","ovr":88,"pos":"FWD"},{"n":"Christian Pulisic","club":"AC Milan","ovr":86,"pos":"FWD"},{"n":"Theo Hernández","club":"AC Milan","ovr":87,"pos":"DEF"},{"n":"Dušan Vlahović","club":"Juventus","ovr":86,"pos":"FWD"},{"n":"Kenan Yıldız","club":"Juventus","ovr":83,"pos":"FWD"},{"n":"Vitinha","club":"Paris Saint-Germain","ovr":87,"pos":"MID"},{"n":"Bradley Barcola","club":"Paris Saint-Germain","ovr":86,"pos":"FWD"},{"n":"Victor Osimhen","club":"Galatasaray","ovr":88,"pos":"FWD"},{"n":"Neymar Jr","club":"Santos FC","ovr":87,"pos":"FWD"},{"n":"Luis Suárez","club":"Inter Miami","ovr":85,"pos":"FWD"},{"n":"Ethan Nwaneri","club":"Arsenal","ovr":79,"pos":"MID"},{"n":"Myles Lewis-Skelly","club":"Arsenal","ovr":78,"pos":"DEF"},{"n":"Marc Casadó","club":"FC Barcelona","ovr":79,"pos":"MID"},{"n":"Fermín López","club":"FC Barcelona","ovr":79,"pos":"MID"},{"n":"Lucas Bergvall","club":"Tottenham Hotspur","ovr":76,"pos":"MID"},{"n":"Archie Gray","club":"Tottenham Hotspur","ovr":76,"pos":"MID"},{"n":"Leny Yoro","club":"Manchester United","ovr":79,"pos":"DEF"},{"n":"Amad Diallo","club":"Manchester United","ovr":79,"pos":"FWD"},{"n":"Rico Lewis","club":"Manchester City","ovr":78,"pos":"DEF"},{"n":"Savinho","club":"Manchester City","ovr":79,"pos":"FWD"},{"n":"Mathys Tel","club":"Bayern Munich","ovr":77,"pos":"FWD"},{"n":"Aleksandar Pavlović","club":"Bayern Munich","ovr":78,"pos":"MID"},{"n":"Warren Zaïre-Emery","club":"Paris Saint-Germain","ovr":79,"pos":"MID"},{"n":"João Neves","club":"Paris Saint-Germain","ovr":79,"pos":"MID"},{"n":"Estêvão Willian","club":"Chelsea","ovr":78,"pos":"FWD"},{"n":"Kendry Páez","club":"Chelsea","ovr":75,"pos":"MID"},{"n":"Jobe Bellingham","club":"Sunderland","ovr":74,"pos":"MID"},{"n":"Sunil Chhetri","club":"Bengaluru FC","ovr":73,"pos":"FWD"},{"n":"Lallianzuala Chhangte","club":"Mumbai City FC","ovr":72,"pos":"FWD"},{"n":"Sahal Abdul Samad","club":"Mohun Bagan SG","ovr":71,"pos":"MID"},{"n":"Gurpreet Singh Sandhu","club":"Bengaluru FC","ovr":69,"pos":"GK"},{"n":"Sandesh Jhingan","club":"FC Goa","ovr":68,"pos":"DEF"},{"n":"Apuia Ralte","club":"Mohun Bagan SG","ovr":68,"pos":"MID"},{"n":"Rahul KP","club":"Kerala Blasters","ovr":66,"pos":"FWD"},{"n":"Vibin Mohanan","club":"Kerala Blasters","ovr":65,"pos":"MID"},{"n":"Sachin Suresh","club":"Kerala Blasters","ovr":64,"pos":"GK"},{"n":"Noah Sadaoui","club":"Kerala Blasters","ovr":69,"pos":"FWD"},{"n":"Adrián Luna","club":"Kerala Blasters","ovr":69,"pos":"MID"},{"n":"Toby Collyer","club":"Manchester United","ovr":66,"pos":"MID"},{"n":"Héctor Fort","club":"FC Barcelona","ovr":67,"pos":"DEF"},{"n":"Ayden Heaven","club":"Manchester United","ovr":59,"pos":"DEF"},{"n":"Chido Obi","club":"Manchester United","ovr":59,"pos":"FWD"},{"n":"Toni Fernández","club":"FC Barcelona","ovr":58,"pos":"FWD"},{"n":"Guille Fernández","club":"FC Barcelona","ovr":58,"pos":"MID"},{"n":"Mohammed Aimen","club":"Kerala Blasters","ovr":57,"pos":"MID"}];
+const sqPrice=o=>o>100?1500:o>90?900:o>80?750:o>70?500:50;
 let SQ={lineup:null,bench:[],bought:[],tab:'lineup',sel:null};
 (function(){try{const d=JSON.parse(localStorage.getItem('fb_squad')||'null');if(d)SQ=Object.assign(SQ,d,{sel:null})}catch(e){}})();
 if(!SQ.lineup)SQ.lineup=SQ_START.map(x=>Object.assign({},x));
@@ -954,9 +966,9 @@ function sqRender(){
     SQ.bench.forEach((p,i)=>{h+=`<div class="sqpl ${SQ.sel===('B'+i)?'sel':''}" onclick="sqTap('B',${i})"><span class="ov">${p.ovr}</span><b>${p.n}</b><small>${p.pos}</small></div>`});
     h+=`</div><div style="margin-top:12px"><button class="tmsec" onclick="sqOpenKits()">Change club kit</button></div>`;
   }else{
-    h+=`<div class="sqhint">Prices use the game's coins (50 to 1000 by rating). Bought players go to your bench.</div><div class="sqbench">`;
+    h+=`<div class="sqhint">Prices: 1500 above 100, 900 for 91-100, 750 for 81-90, 500 for 71-80, 50 for 70 and below. Bought players go to your bench.</div><div class="sqbench">`;
     SQ_SHOP.forEach((p,i)=>{const owned=SQ.bought.includes(p.n),pr=sqPrice(p.ovr);
-      h+=`<div class="sqpl"><span class="ov">${p.ovr}</span><b>${p.n}</b><small>${p.pos}</small><button class="sqbtn" ${owned||COINS<pr?'disabled':''} onclick="sqBuy(${i})">${owned?'OWNED':'🪙 '+pr}</button></div>`});
+      h+=`<div class="sqpl"><span class="ov">${p.ovr}</span><b>${p.n}</b><small>${p.pos} · ${p.club}</small><button class="sqbtn" ${owned||COINS<pr?'disabled':''} onclick="sqBuy(${i})">${owned?'OWNED':'🪙 '+pr}</button></div>`});
     h+='</div>';
   }
   $('squadBody').innerHTML=h;
@@ -1259,6 +1271,13 @@ function goTo(p,tx,ty,sp,dt){
   steer(p,d>6?dx/d*sp:0,d>6?dy/d*sp:0,dt);
 }
 function ai(p,dt,chaser){
+  if(p.role===0&&p.hold>0){
+    p.hold=Math.max(0,p.hold-dt);
+    goTo(p,p.x,p.y,0,dt);
+    if(G.owner===p){G.bx=p.x+p.fx*(PR+BR+2);G.by=p.y+p.fy*(PR+BR+2);G.vx=G.vy=0}
+    if(p.hold<=0&&G.owner===p){G.owner=null;const d=p.team?-1:1;kick(p,d,(Math.random()-.5)*.6,640)}
+    return;
+  }
   if(training&&p.team===1){goTo(p,p.x,p.y,0,dt);return}
   if(G.st===3&&p===G.tk){goTo(p,p.x,p.y,0,dt);return}
   if(p===chaser&&G.owner&&G.owner.team!==p.team&&!(p.sc>0)&&Math.hypot(G.owner.x-p.x,G.owner.y-p.y)<60&&Math.random()<.05){
@@ -1418,6 +1437,10 @@ function simHost(dt){
     }else if(G.bx<0||G.bx>W){
       if(G.bx<0)G.sb++;else G.sr++;
       G.st=1;G.pt=2.8;G.vx=G.vy=0;
+    }
+    for(const p of P){if(p.off||p.role!==0||p.hold>0||G.owner)continue;
+      const dk=Math.hypot(G.bx-p.x,G.by-p.y),sp=Math.hypot(G.vx,G.vy),toward=p.team===0?G.vx<0:G.vx>0;
+      if(dk<PR+BR+24&&sp<900&&toward){G.owner=p;p.hold=1.1;G.vx=G.vy=0;p.cd=0;G.lt=p.team}
     }
     for(const p of P)if(!p.off)touchBall(p);
   }else if(G.st===4){soStep(dt,hs)}else{
