@@ -880,8 +880,27 @@ function tourMatchEnded(){
 }
 function tourContinue(){
   const T=TOUR;T.inMatch=false;
-  finishRound(T.res||{ga:G.sr,gb:G.sb,w:null});
-  tmHub();
+  const r=T.res||{ga:G.sr,gb:G.sb,w:null};
+  finishRound(r);
+  tmPoints(r);
+}
+function tmPoints(r){
+  const T=TOUR,st=curStage();
+  if(T.done||!st){tmHub();return}
+  const res=r.ga>r.gb?'WIN':r.ga<r.gb?'DEFEAT':'DRAW';
+  let h=`<div class="tmh"><div><h2>POINTS TABLE</h2><div class="sub">${T.title}</div></div></div>`;
+  h+=`<div class="tmbox tmchamp" style="padding:12px"><h4>YOUR RESULT</h4><div style="font-size:26px;font-weight:900;color:${res==='WIN'?'#7dffb5':res==='DRAW'?'#ffd23f':'#ff7b7b'}">${res}</div><div style="font-size:18px">${lab(T.user)} ${r.ga} – ${r.gb}</div></div>`;
+  if(st.kind==='rr'){
+    if(T.type==='intl'){
+      const mine=st.groups.find(g=>g.teams.includes(T.user));
+      h+=`<div class="tmbox"><h4>YOUR GROUP</h4>${tableHTML(mine,2)}</div>`;
+      h+=st.groups.filter(g=>g!==mine).map(g=>`<div class="tmbox">${tableHTML(g,2)}</div>`).join('');
+    }else h+=`<div class="tmbox"><h4>TABLE</h4>${tableHTML(st.groups[0],T.type==='j'?4:1)}</div>`;
+  }else{
+    h+=`<div class="tmbox"><h4>${st.name.toUpperCase()}</h4>`+st.ties.map(t=>`<div class="tmrow ${t.a===T.user||t.b===T.user?'me':''}"><span>${lab(t.a)}</span><b>${t.res?t.res.ga+' – '+t.res.gb:'vs'}</b><span>${lab(t.b)}</span></div>`).join('')+'</div>';
+  }
+  h+=`<div class="tmbox" style="text-align:center"><button class="tmplay" onclick="tmHub()">Continue ▶</button></div>`;
+  tmShow(h);
 }
 
 
@@ -1677,7 +1696,7 @@ function draw(dt){
     cx.fillStyle='#bcd2ff';cx.font='600 15px system-ui,sans-serif';cx.fillText('Total shots: '+G.sh[0]+' – '+G.sh[1],VW/2,308);
     cx.fillStyle=COL[1];cx.fillRect(VW/2-170,322,340,12);cx.fillStyle=COL[0];cx.fillRect(VW/2-170,322,340*a/100,12);
     cx.fillStyle='#fff';cx.font='700 13px system-ui,sans-serif';cx.fillText(a+'%',VW/2-140,356);cx.fillText((100-a)+'%',VW/2+140,356);
-    cx.fillStyle='#bcd2ff';cx.font='13px system-ui,sans-serif';cx.fillText(TOUR.inMatch?'Tap Continue to return to the tournament':'New match in '+Math.max(0,Math.ceil(G.pt))+'s',VW/2,392);
+    cx.fillStyle='#bcd2ff';cx.font='13px system-ui,sans-serif';cx.fillText(TOUR.inMatch?'Tap Continue to see the points table':'New match in '+Math.max(0,Math.ceil(G.pt))+'s',VW/2,392);
     ov.style.display='flex';
   }else ov.style.display='none';
 }
